@@ -2,7 +2,7 @@ FROM python:3.12
 LABEL authors="emely"
 
 RUN addgroup --gid 10001 apiuser && \
-    adduser --uid 10001 --gid 10001 --disabled-password --gecos "" papperuser
+    adduser --uid 10001 --gid 10001 --disabled-password --gecos "" apiuser
 
 WORKDIR /src/data/app
 
