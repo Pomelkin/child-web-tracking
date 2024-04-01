@@ -1,5 +1,3 @@
-import asyncio
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import cv2
 import numpy as np
@@ -28,16 +26,6 @@ app = FastAPI()
 
 
 # manager = ConnectionManager()
-def process_img(data: str):
-    data_b64 = data.encode("utf-8")
-    img_data = base64.b64decode(data_b64)
-    img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
-    cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
-    _, img_encoded = cv2.imencode(".jpg", img)
-    jpg_as_txt = base64.b64encode(img_encoded).decode("utf-8")
-    return jpg_as_txt
-
-
 active_connections = []
 
 
@@ -48,7 +36,12 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            encoded_jpg = await asyncio.to_thread(process_img, data)
-            await websocket.send_text(encoded_jpg)
+            data_b64 = data.encode("utf-8")
+            img_data = base64.b64decode(data_b64)
+            img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+            cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
+            _, img_encoded = cv2.imencode(".jpg", img)
+            jpg_as_txt = base64.b64encode(img_encoded).decode("utf-8")
+            await websocket.send_text(jpg_as_txt)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
