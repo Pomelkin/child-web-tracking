@@ -36,7 +36,8 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            img_data = base64.b64decode(data)
+            data_b64 = data.encode("utf-8")
+            img_data = base64.b64decode(data_b64)
             img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
             cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
             _, img_encoded = cv2.imencode(".jpg", img)
