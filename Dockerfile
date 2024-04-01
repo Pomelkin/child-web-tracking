@@ -9,7 +9,7 @@ WORKDIR /src/data/app
 COPY  requirements.txt requirements.txt
 RUN apt-get update && \
     pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements/base.txt && \
+    pip install --no-cache-dir -r requirements.txt && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm requirements.txt
