@@ -4,7 +4,7 @@ const videoCanvas = document.getElementById('video');
 const ctx = videoCanvas.getContext('2d');
 const input = document.getElementById('input');
 // const ws = new WebSocket('ws://ontollm.semograph.com:28080/ws');
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket('ws://localhost:8000/ws');
 
 videoCanvas.width = 640;
 videoCanvas.height = 480;
@@ -34,19 +34,20 @@ ws.onmessage = (event) => {
     drawImage(event.data);
 }
 function drawImage(data){
+    outCtx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
     console.log(data)
     const bboxes =  JSON.parse(data).bboxes;
     outCtx.drawImage(input, 0, 0, videoCanvas.width, videoCanvas.height);
 
     for(let i = 0; i < bbox.length; i++){
         const bbox = bboxes[i];
-        for(let j = 0; j < bbox.length; j++){
-            outCtx.beginPath();
-            outCtx.lineWidth = "2";
-            outCtx.strokeStyle = 'red';
-            outCtx.rect(bbox[0], bbox[1], bbox[2], bbox[3]);
-            outCtx.stroke();
-        }
+        
+        outCtx.beginPath();
+        outCtx.lineWidth = "2";
+        outCtx.strokeStyle = 'red';
+        outCtx.rect(bbox[0], bbox[1], bbox[2], bbox[3]);
+        outCtx.stroke();
+        
     }
     console.log(bboxes)
 
