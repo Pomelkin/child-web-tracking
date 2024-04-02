@@ -1,4 +1,6 @@
 from asyncio import AbstractEventLoop
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,53 +10,24 @@ import base64
 import asyncio
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
+from ultralytics import YOLO
 from src.models import Stream
 from queue import Full
 
-app = FastAPI()
+ml_models = {}
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the ML model
+    ml_models["yolo"] = YOLO("yolov8n.pt")
+    yield
+    # Clean up the ML models and release the resources
+    ml_models.clear()
 
 
-# class ConnectionManager:
-#     def __init__(self):
-#         self.active_connections: list[WebSocket] = []
-#
-#     async def connect(self, websocket: WebSocket):
-#         await websocket.accept()
-#         self.active_connections.append(websocket)
-#
-#     def disconnect(self, websocket: WebSocket):
-#         self.active_connections.remove(websocket)
-#
-#     async def send_personal_message(self, message: str, websocket: WebSocket):
-#         await websocket.send_text(message)
-#
-#     async def broadcast(self, message: str):
-#         for connection in self.active_connections:
-#             await connection.send_text(message)
+app = FastAPI(lifespan=lifespan)
 
-
-# @app.post("/frame", response_model=Stream)
-# async def process_frame(stream: Stream):
-#     data = stream.b64_frame
-#     data_b64 = data.encode("utf-8")
-#     bytes_data = base64.b64decode(data_b64)
-#     frame = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-#     cv2.rectangle(frame, (100, 100), (200, 200), (0, 255, 0), 2)
-#     _, img_encoded = cv2.imencode(".jpg", frame)
-#     encoded_frame = base64.b64encode(img_encoded).decode("utf-8")
-#     return Stream(b64_frame=encoded_frame)
-
-
-# manager = ConnectionManager()
 active_connections = []
 
 
@@ -66,11 +39,22 @@ async def receiving_messages(websocket: WebSocket, queue: asyncio.Queue):
         pass
 
 
-def process_img(base64_img: str) -> np.ndarray:
+def process_img(base64_img: str) -> list[list]:
     bytes_img = base64.b64decode(base64_img)
     arr_img = np.frombuffer(bytes_img, dtype=np.uint8)
     img = cv2.imdecode(arr_img, cv2.IMREAD_COLOR)
-    return cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
+
+    model = ml_models["yolo"]
+    results = model.predict(img)
+
+    if len(results[0]) == 0:
+        return []
+
+    boxes = []
+    for bboxes in results[0].boxes.data.tolist():
+        x1, y1, x2, y2, _, _ = bboxes
+        boxes.append([x1, y1, x2, y2])
+    return boxes
 
 
 async def detection(websocket: WebSocket, queue: mp.Queue):
@@ -78,9 +62,9 @@ async def detection(websocket: WebSocket, queue: mp.Queue):
         base64_img = await queue.get()
         with ProcessPoolExecutor() as pool:
             loop: AbstractEventLoop = asyncio.get_event_loop()
-            img_task = loop.run_in_executor(pool, process_img, base64_img)
-            img = await img_task
-        await websocket.send_json({"bboxes": [100, 100, 200, 200]})
+            results = loop.run_in_executor(pool, process_img, base64_img)
+            bboxes = await results
+        await websocket.send_json({"bboxes": bboxes})
 
 
 @app.websocket("/ws")
