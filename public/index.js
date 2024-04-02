@@ -26,7 +26,6 @@ function onVideo(){
 function captureFrame () {
     const imageData = ctx.getImageData(0, 0, videoCanvas.width, videoCanvas.height);
     const dataURL = videoCanvas.toDataURL().split(',')[1];
-    console.log(dataURL);
     ws.send(dataURL);
 }
 
@@ -38,10 +37,11 @@ function drawImage(data){
     console.log(data)
     const bboxes =  JSON.parse(data).bboxes;
     outCtx.drawImage(input, 0, 0, videoCanvas.width, videoCanvas.height);
+    console.log(bboxes)
 
     for(let i = 0; i < bbox.length; i++){
         const bbox = bboxes[i];
-        
+        console.log(bbox);
         outCtx.beginPath();
         outCtx.lineWidth = "2";
         outCtx.strokeStyle = 'red';
@@ -49,7 +49,6 @@ function drawImage(data){
         outCtx.stroke();
         
     }
-    console.log(bboxes)
 
     
 }
