@@ -28,10 +28,17 @@ function captureFrame () {
 }
 
 ws.onmessage = (event) => {
-    const base64 = 'data:image/jpeg;base64,' + event.data;
-    const img = new Image();
-    img.src = base64;
-    img.onload = () => {
-        outCtx.drawImage(img, 0, 0, output.width, output.height);
-    }
+    drawImage(event.data);
+}
+function drawImage(data){
+    console.log(data)
+    const bbox =  JSON.parse(data).bboxes;
+    console.log(bbox)
+    outCtx.drawImage(input, 0, 0, videoCanvas.width, videoCanvas.height);
+    outCtx.beginPath();
+    outCtx.lineWidth = "2";
+    outCtx.strokeStyle = 'red';
+    outCtx.rect(bbox[0], bbox[1], bbox[2], bbox[3]);
+    outCtx.stroke();
+    
 }
