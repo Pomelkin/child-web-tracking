@@ -3,7 +3,9 @@ const outCtx = output.getContext('2d');
 const videoCanvas = document.getElementById('video');
 const ctx = videoCanvas.getContext('2d');
 const input = document.getElementById('input');
-const ws = new WebSocket('ws://ontollm.semograph.com:28080/ws');
+// const ws = new WebSocket('ws://ontollm.semograph.com:28080/ws');
+const ws = new WebSocket('ws://localhost:8080/ws');
+
 videoCanvas.width = 640;
 videoCanvas.height = 480;
 output.width = 640;
@@ -24,6 +26,7 @@ function onVideo(){
 function captureFrame () {
     const imageData = ctx.getImageData(0, 0, videoCanvas.width, videoCanvas.height);
     const dataURL = videoCanvas.toDataURL().split(',')[1];
+    console.log(dataURL);
     ws.send(dataURL);
 }
 
