@@ -35,13 +35,20 @@ ws.onmessage = (event) => {
 }
 function drawImage(data){
     console.log(data)
-    const bbox =  JSON.parse(data).bboxes;
-    console.log(bbox)
+    const bboxes =  JSON.parse(data).bboxes;
     outCtx.drawImage(input, 0, 0, videoCanvas.width, videoCanvas.height);
-    outCtx.beginPath();
-    outCtx.lineWidth = "2";
-    outCtx.strokeStyle = 'red';
-    outCtx.rect(bbox[0], bbox[1], bbox[2], bbox[3]);
-    outCtx.stroke();
+
+    for(let i = 0; i < bbox.length; i++){
+        const bbox = bboxes[i];
+        for(let j = 0; j < bbox.length; j++){
+            outCtx.beginPath();
+            outCtx.lineWidth = "2";
+            outCtx.strokeStyle = 'red';
+            outCtx.rect(bbox[0], bbox[1], bbox[2], bbox[3]);
+            outCtx.stroke();
+        }
+    }
+    console.log(bboxes)
+
     
 }
