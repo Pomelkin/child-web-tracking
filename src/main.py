@@ -51,7 +51,6 @@ app.add_middleware(
 
 # manager = ConnectionManager()
 active_connections = []
-active_tasks = []
 
 
 async def receive(websocket: WebSocket, queue: asyncio.Queue):
@@ -78,11 +77,9 @@ async def websocket_endpoint(websocket: WebSocket):
     active_connections.append(websocket)
     queue = asyncio.Queue()
     detect_task = asyncio.create_task(detect(websocket, queue))
-    active_tasks.append(detect_task)
     try:
         while True:
             await receive(websocket, queue)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
-        active_tasks.remove(detect_task)
-        queue.put_nowait(None)
+        detect_task.cancel()
