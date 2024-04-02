@@ -85,7 +85,6 @@ def detect(usr_websocket: WebSocket, img_queue: mp.Queue):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-
     manager = mp.Manager()
     img_queue = manager.Queue()
     with ProcessPoolExecutor() as pool:
@@ -100,4 +99,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
