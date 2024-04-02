@@ -14,7 +14,6 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: false })
 .then(stream => {
     input.srcObject = stream;
     onVideo();
-    console.log(input.videoWidth, input.videoHeight);
 })
 
 function onVideo(){
@@ -39,7 +38,7 @@ function drawImage(data){
     outCtx.drawImage(input, 0, 0, videoCanvas.width, videoCanvas.height);
     console.log(bboxes)
 
-    for(let i = 0; i < bbox.length; i++){
+    for(let i = 0; i < bboxes.length; i++){
         const bbox = bboxes[i];
         console.log(bbox);
         outCtx.beginPath();
