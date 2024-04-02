@@ -58,44 +58,41 @@ app.add_middleware(
 active_connections = []
 
 
-def receive(usr_websocket: WebSocket, img_queue: mp.Queue):
-    async def receiving_messages(websocket: WebSocket, queue: mp.Queue):
-        base64_img = await websocket.receive_text()
-        try:
-            queue.put_nowait(base64_img)
-        except Full:
-            pass
-
-    asyncio.run(receiving_messages(usr_websocket, img_queue))
+async def receiving_messages(websocket: WebSocket, queue: asyncio.Queue):
+    base64_img = await websocket.receive_text()
+    try:
+        queue.put_nowait(base64_img)
+    except asyncio.QueueFull:
+        pass
 
 
-def detect(usr_websocket: WebSocket, img_queue: mp.Queue):
-    async def detection(websocket: WebSocket, queue: mp.Queue):
-        while True:
-            base64_img = queue.get()
-            bytes_img = base64.b64decode(base64_img)
-            arr_img = np.frombuffer(bytes_img, dtype=np.uint8)
-            img = cv2.imdecode(arr_img, cv2.IMREAD_COLOR)
-            cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
-            await websocket.send_json({"bboxes": [100, 100, 200, 200]})
+def process_img(base64_img: str) -> np.ndarray:
+    bytes_img = base64.b64decode(base64_img)
+    arr_img = np.frombuffer(bytes_img, dtype=np.uint8)
+    img = cv2.imdecode(arr_img, cv2.IMREAD_COLOR)
+    return cv2.rectangle(img, (100, 100), (200, 200), (0, 255, 0), 2)
 
-    asyncio.run(detection(usr_websocket, img_queue))
+
+async def detection(websocket: WebSocket, queue: mp.Queue):
+    while True:
+        base64_img = await queue.get()
+        with ProcessPoolExecutor() as pool:
+            loop: AbstractEventLoop = asyncio.get_event_loop()
+            img_task = loop.run_in_executor(pool, process_img, base64_img)
+            img = await img_task
+        await websocket.send_json({"bboxes": [100, 100, 200, 200]})
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    manager = mp.Manager()
-    img_queue = manager.Queue()
-    with ProcessPoolExecutor() as pool:
-        loop: AbstractEventLoop = asyncio.get_event_loop()
-        detection_task = loop.run_in_executor(pool, detect, websocket, img_queue)
-        receiving_task = loop.run_in_executor(pool, receive, websocket, img_queue)
-        try:
-            await asyncio.gather(receiving_task)
-        except WebSocketDisconnect:
-            receiving_task.cancel()
-            detection_task.cancel()
+    queue = asyncio.Queue()
+    detection_task = asyncio.create_task(detection(websocket, queue))
+    try:
+        while True:
+            await receiving_messages(websocket, queue)
+    except WebSocketDisconnect:
+        detection_task.cancel()
 
 
 if __name__ == "__main__":
