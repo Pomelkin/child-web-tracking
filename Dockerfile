@@ -22,5 +22,5 @@ COPY --chown=apiuser:apiuser . .
 USER apiuser
 
 ENTRYPOINT ["python"]
-CMD ["main.py"]
+CMD ["src/main.py"]
 
