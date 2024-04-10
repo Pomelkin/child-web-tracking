@@ -22,7 +22,7 @@ shared_values = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    ml_models["yolo"] = YOLO("yolov8n.pt")
+    ml_models["yolo"] = YOLO("nn_models/yolov8n.pt")
     shared_values["lock"] = Lock()
     yield
     # Clean up the ML models and release the resources
@@ -46,14 +46,13 @@ async def detection(websocket: WebSocket, model: YOLO, lock: Lock):
     assert id(lock) == id(shared_values["lock"])
     assert id(model) == id(ml_models["yolo"])
 
-    with ProcessPoolExecutor() as pool:
+    with ProcessPoolExecutor(max_workers=1) as pool:
         loop: AbstractEventLoop = asyncio.get_event_loop()
         while True:
             base64_img = await websocket.receive_text()
-            get_img = loop.run_in_executor(pool, process_img, base64_img)
-            img = await get_img
+            img = await loop.run_in_executor(pool, process_img, base64_img)
 
-            async with shared_values["lock"]:
+            async with lock:
                 results = model.predict(img)
 
             boxes = []
@@ -81,4 +80,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
