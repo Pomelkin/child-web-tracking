@@ -11,7 +11,6 @@ import asyncio
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from ultralytics import YOLO
-from src.models import Stream
 from queue import Full
 import torch
 
