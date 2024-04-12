@@ -278,4 +278,5 @@ fabric.properties
 /.idea/vcs.xml
 /.vscode/
 /mediapipe/**
-src/nn_models/**
+src/nn_models/body
+src/nn_models/hands
