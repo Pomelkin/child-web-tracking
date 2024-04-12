@@ -278,3 +278,4 @@ fabric.properties
 /.idea/vcs.xml
 /.vscode/
 /mediapipe/**
+src/nn_models/**
