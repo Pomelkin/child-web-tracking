@@ -1,1 +1,5 @@
-from .detection_task import DetectionTaskRequest, DetectionTaskResponse
+from .detection_task import (
+    DetectionTaskRequest,
+    DetectionTaskResponse,
+    DetectionTaskError,
+)

@@ -1,9 +1,8 @@
-from asyncio import AbstractEventLoop
+import pprint
 from contextlib import asynccontextmanager
 from asyncio import Lock
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 import base64
@@ -13,6 +12,12 @@ from concurrent.futures import ProcessPoolExecutor
 from ultralytics import YOLO
 from queue import Full
 import torch
+import logging
+from multiprocessing.connection import Connection
+from src.pipeline import detect_action
+from src.video_processing.detection.pose_estimator import PoseEstimator
+from src.video_processing.detection.gesture_recognizer import GestureRecognizer
+from src.video_processing.detection.hand_detector import HandDetector
 
 ml_models = {}
 shared_values = {}
@@ -20,63 +25,78 @@ shared_values = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load the ML model
-    ml_models["yolo"] = YOLO("nn_models/yolov8n.pt")
+    torch.cuda.set_device(torch.device("cuda", 0))
+    ml_models["pose_estimation"] = PoseEstimator()
+    ml_models["gesture_recognizer"] = GestureRecognizer()
+    ml_models["hand_detector"] = HandDetector()
+
     shared_values["lock"] = Lock()
     yield
     # Clean up the ML models and release the resources
     ml_models.clear()
+    shared_values.clear()
 
 
 app = FastAPI(lifespan=lifespan)
 
-active_connections = []
+
+def img_preprocessor(connection: Connection) -> None:
+    while True:
+        data = connection.recv()
+        if data == "stop":
+            logging.info("stop img_preprocessor")
+            break
+        base64_img = data
+        bytes_img = base64.b64decode(base64_img)
+        arr_img = np.frombuffer(bytes_img, dtype=np.uint8)
+        img = cv2.imdecode(arr_img, cv2.IMREAD_COLOR)
+        connection.send(img)
+    return
 
 
-def process_img(base64_img: str) -> np.ndarray:
-    print(torch.cuda.is_available())
-    bytes_img = base64.b64decode(base64_img)
-    arr_img = np.frombuffer(bytes_img, dtype=np.uint8)
-    img = cv2.imdecode(arr_img, cv2.IMREAD_COLOR)
-    return img
+async def detect(websocket: WebSocket, connection: Connection):
+    keypoints_detector = ml_models["pose_estimation"]
+    hand_detector = ml_models["hand_detector"]
+    gesture_recognizer = ml_models["gesture_recognizer"]
 
-
-async def detection(websocket: WebSocket, model: YOLO, lock: Lock):
-    assert id(lock) == id(shared_values["lock"])
-    assert id(model) == id(ml_models["yolo"])
-
-    with ProcessPoolExecutor(max_workers=1) as pool:
-        loop: AbstractEventLoop = asyncio.get_event_loop()
-        while True:
+    lock = shared_values["lock"]
+    while True:
+        try:
             base64_img = await websocket.receive_text()
-            img = await loop.run_in_executor(pool, process_img, base64_img)
+            connection.send(base64_img)
+            img = connection.recv()
 
-            async with lock:
-                results = model.predict(img)
-
-            boxes = []
-            for bboxes in results[0].boxes.data.tolist():
-                x1, y1, x2, y2, _, _ = bboxes
-                boxes.append([x1, y1, x2, y2])
-                print(x1, y1, x2, y2)
-
-            await websocket.send_json({"bboxes": boxes})
+            results = await detect_action(
+                frame=img,
+                keypoint_index=0,
+                lock=lock,
+                keypoints_detector=keypoints_detector,
+                hand_detector=hand_detector,
+                gesture_recognizer=gesture_recognizer,
+                verbose=True,
+            )
+            print(results)
+            # await websocket.send_json(results.model_dump_json())
+        except WebSocketDisconnect:
+            connection.send("stop")
+            print("disconnected")
+            return
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    detect_conn, img_preprocessing_conn = mp.Pipe(duplex=True)
 
-    model = ml_models["yolo"]
-    model.to("cuda")
-    model_lock = shared_values["lock"]
+    with ProcessPoolExecutor(max_workers=1) as pool:
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(pool, img_preprocessor, img_preprocessing_conn)
 
-    try:
-        while True:
-            await detection(websocket, model, model_lock)
-    except WebSocketDisconnect:
-        print("disconnected")
+        await detect(websocket, detect_conn)
+
+    detect_conn.close()
+    img_preprocessing_conn.close()
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="localhost", port=8000)

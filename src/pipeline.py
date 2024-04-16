@@ -1,115 +1,106 @@
 import cv2
 import numpy as np
 from ultralytics import YOLO
-from video_processing.detection.pose_estimator import PoseEstimator
-from video_processing.detection.gesture_recognizer import GestureRecognizer
-from video_processing.detection.hand_detector import HandDetector
-from video_processing import Hand, AttributingPoint
+import logging
+from concurrent.futures import ProcessPoolExecutor
+from src.video_processing.detection.pose_estimator import PoseEstimator
+from src.video_processing.detection.gesture_recognizer import GestureRecognizer
+from src.video_processing.detection.hand_detector import HandDetector
+from src.video_processing import Hand, AttributingPoint
+from src.schemas import DetectionTaskResponse, DetectionTaskError
+import asyncio
+from asyncio import AbstractEventLoop, Lock
 
 
-def main(keypoint_index: int = 0):
+async def detect_action(
+    frame: np.ndarray,
+    keypoint_index: int,
+    lock: Lock,
+    keypoints_detector: PoseEstimator,
+    hand_detector: HandDetector,
+    gesture_recognizer: GestureRecognizer,
+    verbose: bool = False,
+) -> DetectionTaskResponse:
     # constants
     error_count_prompts = ["too little", "too much"]
 
-    # models initialization
-    keypoints_detector = PoseEstimator()
-    hand_detector = HandDetector()
-    gesture_recognizer = GestureRecognizer()
+    # keypoints and hands detection keypoints_results hand_results
+    async with lock:
+        detect_keypoints_task = asyncio.to_thread(
+            keypoints_detector.detect_keypoints, frame=frame, verbose=verbose
+        )
+        detect_hands_task = asyncio.to_thread(
+            hand_detector.detect_hands, frame=frame, verbose=verbose
+        )
+        results = await asyncio.gather(detect_keypoints_task, detect_hands_task)
+        keypoints_results, hand_results = results[0][0], results[1][0]
 
-    cap = cv2.VideoCapture(0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            print("Can't receive frame (stream end?). Exiting ...")
-            break
+    # person count validation
+    if (person_count := len(keypoints_results.boxes.data.tolist())) != 1:
+        error_count = 0 if person_count == 0 else 1
 
-        # keypoints and hands detection
-        keypoints_results = keypoints_detector.detect_keypoints(frame)[0]
-        hand_results = hand_detector.detect_hands(frame)[0]
+        persons_count_error = DetectionTaskResponse(
+            success=False,
+            error=DetectionTaskError(
+                error=True, message=f"{error_count_prompts[error_count]} people"
+            ),
+        )
+        return persons_count_error
 
-        # person count validation
-        if (person_count := len(keypoints_results.boxes.data.tolist())) != 1:
-            error_ind = person_count != 0
-            print(f"Error, {error_count_prompts[error_ind]} people")
-            continue
+    # extracting attributing point coordinates
+    points = keypoints_results.keypoints.xy.tolist()[0]
+    x, y = tuple(map(int, points[keypoint_index]))
+    if (x and y) == 0:
+        keypoint_error = DetectionTaskResponse(
+            success=False,
+            error=DetectionTaskError(error=True, message="keypoint is not detected"),
+        )
+        return keypoint_error
 
-        # extracting attributing point coordinates
-        points = keypoints_results.keypoints.xy.tolist()[0]
-        x, y = tuple(map(int, points[keypoint_index]))
-        if (x and y) == 0:
-            continue
-        attributing_point = AttributingPoint((x, y))
+    attributing_point = AttributingPoint((x, y))
 
-        # extracting hands keypoints and gestures
-        hands = []
-        for hand_bbox in hand_results.boxes.data.tolist():
-            x1, y1, x2, y2, score, class_id = hand_bbox
+    # extracting hands keypoints and gestures
+    hands = []
+    for hand_bbox in hand_results.boxes.data.tolist():
+        x1, y1, x2, y2, score, class_id = hand_bbox
 
-            hand_frame = frame[
-                int(y1 * 0.8) : int(y2 * 1.2), int(x1 * 0.8) : int(x2 * 1.2)
-            ]
-            width, height = int(hand_frame.shape[1]), int(hand_frame.shape[0])
+        hand_frame = frame[int(y1 * 0.8) : int(y2 * 1.2), int(x1 * 0.8) : int(x2 * 1.2)]
+        width, height = int(hand_frame.shape[1]), int(hand_frame.shape[0])
+        async with lock:
             hand_result = gesture_recognizer.recognize_gesture(hand_frame)
 
-            if len(hand_result.hand_landmarks) == 0:
+        if len(hand_result.hand_landmarks) == 0:
+            continue
+
+        points = []
+        hand = hand_result.hand_landmarks[0]
+        name = hand_result.handedness[0][0].category_name
+        gesture = hand_result.gestures[0][0].category_name
+        for ind, point in enumerate(hand):
+            # skipping extra points
+            if ind % 4 != 0:
                 continue
 
-            points = []
-            hand = hand_result.hand_landmarks[0]
-            name = hand_result.handedness[0][0].category_name
-            gesture = hand_result.gestures[0][0].category_name
-            for ind, point in enumerate(hand):
-                # skipping extra points
-                if ind % 4 != 0:
-                    continue
+            x, y = int(point.x * width + x1 * 0.8), int(point.y * height + y1 * 0.8)
+            points.append((x, y))
 
-                x, y = int(point.x * width + x1 * 0.8), int(point.y * height + y1 * 0.8)
-                points.append((x, y))
+        hands.append(Hand(name, points, gesture, (int(x1), int(y1), int(x2), int(y2))))
 
-            hands.append(
-                Hand(name, points, gesture, (int(x1), int(y1), int(x2), int(y2)))
-            )
-
-            cv2.rectangle(
-                frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), thickness=2
-            )
-            cv2.putText(
-                frame,
-                f"{name}, {gesture}",
-                (int(x1), int(y1 - 2)),
-                cv2.FONT_ITALIC,
-                0.6,
-                (0, 255, 0),
-                1,
-            )
-
-        # checking intersection with attributing point
-        for hand in hands:
-            if len(points := hand.points) == 0:
-                continue
-            for ind, point in enumerate(points):
-                x, y = point
-                cv2.putText(
-                    frame,
-                    str(ind),
-                    (x, y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 255, 0),
-                    1,
+    # checking intersection with attributing point
+    for hand in hands:
+        if len(points := hand.points) == 0:
+            continue
+        for ind, point in enumerate(points):
+            x, y = point
+            if attributing_point.check_intersection(x, y):
+                success = DetectionTaskResponse(
+                    success=True,
+                    error=DetectionTaskError(error=False, message=""),
                 )
-                cv2.circle(frame, (x, y), 3, (0, 0, 255), -1)
+                return success
 
-                if attributing_point.check_intersection(x, y):
-                    print(f"Yep, {hand.name}")
-
-        cv2.imshow("frame", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    main()
+    failure = DetectionTaskResponse(
+        success=False,
+        error=DetectionTaskError(error=False, message=""),
+    )
+    return failure

@@ -5,6 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 
 
+# TODO: read type and version of models from .env
 class ModelPaths(BaseModel):
     gesture_model_dir: FilePath = (
         BASE_DIR / "nn_models" / "hands" / "gesture_recognizer.task"
@@ -13,12 +14,12 @@ class ModelPaths(BaseModel):
         BASE_DIR / "nn_models" / "hands" / "yolov8m-hand_detector.pt"
     )
     pose_estimation_model_dir: FilePath = (
-        BASE_DIR / "nn_models" / "body" / "yolov8m-pose.pt"
+        BASE_DIR / "nn_models" / "body" / "yolov8n-pose.pt"
     )
 
 
 class Settings(BaseSettings):
-    model_paths: ModelPaths = ModelPaths()
+    paths_to_models: ModelPaths = ModelPaths()
 
 
 settings = Settings()
