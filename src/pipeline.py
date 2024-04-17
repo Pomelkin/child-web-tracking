@@ -12,10 +12,9 @@ import asyncio
 from asyncio import AbstractEventLoop, Lock
 
 
-async def detect_action(
+def detect_action(
     frame: np.ndarray,
     keypoint_index: int,
-    lock: Lock,
     keypoints_detector: PoseEstimator,
     hand_detector: HandDetector,
     gesture_recognizer: GestureRecognizer,
@@ -25,15 +24,10 @@ async def detect_action(
     error_count_prompts = ["too little", "too much"]
 
     # keypoints and hands detection keypoints_results hand_results
-    async with lock:
-        detect_keypoints_task = asyncio.to_thread(
-            keypoints_detector.detect_keypoints, frame=frame, verbose=verbose
-        )
-        detect_hands_task = asyncio.to_thread(
-            hand_detector.detect_hands, frame=frame, verbose=verbose
-        )
-        results = await asyncio.gather(detect_keypoints_task, detect_hands_task)
-        keypoints_results, hand_results = results[0][0], results[1][0]
+    keypoints_results = keypoints_detector.detect_keypoints(
+        frame=frame, verbose=verbose
+    )[0]
+    hand_results = hand_detector.detect_hands(frame=frame, verbose=verbose)[0]
 
     # person count validation
     if (person_count := len(keypoints_results.boxes.data.tolist())) != 1:
@@ -66,8 +60,7 @@ async def detect_action(
 
         hand_frame = frame[int(y1 * 0.8) : int(y2 * 1.2), int(x1 * 0.8) : int(x2 * 1.2)]
         width, height = int(hand_frame.shape[1]), int(hand_frame.shape[0])
-        async with lock:
-            hand_result = gesture_recognizer.recognize_gesture(hand_frame)
+        hand_result = gesture_recognizer.recognize_gesture(hand_frame)
 
         if len(hand_result.hand_landmarks) == 0:
             continue
