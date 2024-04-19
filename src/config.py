@@ -20,6 +20,7 @@ class ModelPaths(BaseModel):
 
 class Settings(BaseSettings):
     paths_to_models: ModelPaths = ModelPaths()
+    num_workers: int
 
 
 settings = Settings()

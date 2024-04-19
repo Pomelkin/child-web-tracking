@@ -1,15 +1,9 @@
-import cv2
 import numpy as np
-from ultralytics import YOLO
-import logging
-from concurrent.futures import ProcessPoolExecutor
 from src.video_processing.detection.pose_estimator import PoseEstimator
 from src.video_processing.detection.gesture_recognizer import GestureRecognizer
 from src.video_processing.detection.hand_detector import HandDetector
 from src.video_processing import Hand, AttributingPoint
 from src.schemas import DetectionTaskResponse, DetectionTaskError
-import asyncio
-from asyncio import AbstractEventLoop, Lock
 
 
 def detect_action(
