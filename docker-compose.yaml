@@ -2,5 +2,16 @@ version: "3.9"
 services:
     app:
         build: .
+        env_file:
+            -   src/.env
         ports:
-            - "8080:8080"
+            -   "8000:8000"
+        volumes:
+            -   ./src/nn_models:/usr/data/app/src/nn_models
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: 1
+                          capabilities: [ gpu ]

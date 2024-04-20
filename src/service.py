@@ -1,50 +1,36 @@
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.connection import Connection
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from src.shared import shared_values
+from src.schemas import DetectionTaskResponse, DetectionTaskRequest
 import asyncio
 
 
-async def handle_users_frames(
-    websocket: WebSocket, img_converter_conn: Connection, num: int
-):
+async def handle_users_frames(websocket: WebSocket, img_converter_conn: Connection):
     lock = shared_values["lock"]
-    workers = shared_values["detection_workers"]
+    worker: dict = shared_values["detection_worker"]
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         loop = asyncio.get_running_loop()
         while True:
             try:
-                base64_img = await websocket.receive_text()
+                json_data = await websocket.receive_json()
+                data = DetectionTaskRequest.model_validate_json(json_data)
                 await loop.run_in_executor(
-                    executor, img_converter_conn.send, base64_img
+                    executor, img_converter_conn.send, data.base64_img
                 )
                 img = await loop.run_in_executor(executor, img_converter_conn.recv)
-                # img_converter_conn.send(base64_img)
-                # img = img_converter_conn.recv()
 
-                detection_worker_lock = None
-                detection_worker_conn = None
                 async with lock:
-                    for worker in workers:
-                        worker_lock = worker["lock"]
-                        if not worker_lock.locked():
-                            detection_worker_conn = worker["connection"]
-                            detection_worker_lock = worker_lock
-                            break
-
-                if detection_worker_lock is None:
-                    continue
-
-                async with detection_worker_lock:
                     await loop.run_in_executor(
-                        executor, detection_worker_conn.send, (0, img)
+                        executor, worker["connection"].send, (data.task, img)
                     )
-                    results = await loop.run_in_executor(
-                        executor, detection_worker_conn.recv
+                    results: DetectionTaskResponse = await loop.run_in_executor(
+                        executor, worker["connection"].recv
                     )
 
-                await websocket.send_text(results)
+                await websocket.send_json(results.model_dump_json())
+                # await websocket.send_json(results.model_dump_json())
             except WebSocketDisconnect:
                 await loop.run_in_executor(executor, img_converter_conn.close)
                 break

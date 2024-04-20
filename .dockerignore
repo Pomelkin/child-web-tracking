@@ -2,3 +2,4 @@
 
 !src/**
 !requirements.txt
+src/nn_models/**

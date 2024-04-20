@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import FilePath, BaseModel
 from pathlib import Path
 
@@ -19,8 +19,8 @@ class ModelPaths(BaseModel):
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", extra="ignore")
     paths_to_models: ModelPaths = ModelPaths()
-    num_workers: int
 
 
 settings = Settings()

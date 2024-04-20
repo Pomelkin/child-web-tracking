@@ -3,3 +3,4 @@ from .detection_task import (
     DetectionTaskResponse,
     DetectionTaskError,
 )
+from .worker import Worker

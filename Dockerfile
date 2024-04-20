@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.11.7-slim
 LABEL authors="emely"
 
 RUN addgroup --gid 10001 apiuser && \
@@ -21,6 +21,5 @@ COPY --chown=apiuser:apiuser . .
 
 USER apiuser
 
-ENTRYPOINT ["python"]
-CMD ["src/main.py"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
