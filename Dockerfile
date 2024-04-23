@@ -13,6 +13,7 @@ RUN apt-get update && \
     apt-get install ffmpeg libsm6 libxext6  -y && \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm requirements.txt
