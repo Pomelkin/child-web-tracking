@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     # logger.setLevel(mp.SUBDEBUG)
 
     mp.set_start_method("spawn")
-    cores = mp.cpu_count() // 2
+    cores = mp.cpu_count()
     torch.cuda.set_device(torch.device("cuda", 0))
 
     shared_values["detection_worker"] = None
