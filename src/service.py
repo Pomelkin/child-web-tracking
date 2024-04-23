@@ -15,7 +15,7 @@ async def handle_users_frames(websocket: WebSocket, img_converter_conn: Connecti
         while True:
             try:
                 json_data = await websocket.receive_json()
-                data = DetectionTaskRequest.model_validate_json(json_data)
+                data = DetectionTaskRequest(**json_data)
                 await loop.run_in_executor(
                     executor, img_converter_conn.send, data.base64_img
                 )

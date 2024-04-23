@@ -16,8 +16,8 @@ import logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger = mp.log_to_stderr()
-    logger.setLevel(mp.SUBDEBUG)
+    # logger = mp.log_to_stderr()
+    # logger.setLevel(mp.SUBDEBUG)
 
     mp.set_start_method("spawn")
     cores = mp.cpu_count() // 2
