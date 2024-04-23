@@ -8,8 +8,8 @@ import asyncio
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 import torch
-from src.utils import img_converter, detection_worker
-from src.service import handle_users_frames
+from src.utils import img_converter
+from src.service import user_frames_handler, detection_worker
 from src.shared import shared_values
 import logging
 
@@ -74,7 +74,7 @@ async def websocket_endpoint(websocket: WebSocket):
         loop = asyncio.get_running_loop()
         loop.run_in_executor(executor, img_converter, child_img_converter_conn)
 
-        await handle_users_frames(websocket, parent_img_converter_conn)
+        await user_frames_handler(websocket, parent_img_converter_conn)
         parent_img_converter_conn.close()
         child_img_converter_conn.close()
 

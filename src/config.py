@@ -14,7 +14,7 @@ class ModelPaths(BaseModel):
         BASE_DIR / "nn_models" / "hands" / "yolov8m-hand_detector.pt"
     )
     pose_estimation_model_dir: FilePath = (
-        BASE_DIR / "nn_models" / "body" / "yolov8n-pose.pt"
+        BASE_DIR / "nn_models" / "body" / "yolov8m-pose.pt"
     )
 
 

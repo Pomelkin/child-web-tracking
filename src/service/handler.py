@@ -8,7 +8,7 @@ from src.schemas import DetectionTaskResponse, DetectionTaskRequest
 import asyncio
 
 
-async def handle_users_frames(websocket: WebSocket, img_converter_conn: Connection):
+async def user_frames_handler(websocket: WebSocket, img_converter_conn: Connection):
     lock = shared_values["lock"]
     worker: dict = shared_values["detection_worker"]
 

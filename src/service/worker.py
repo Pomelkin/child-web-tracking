@@ -14,10 +14,10 @@ def detection_worker(connection: Connection) -> None:
             data = connection.recv()
             if data == "stop":
                 break
-            keypoint, img = data
+            task_id, img = data
             results = detect_action(
                 frame=img,
-                keypoint_index=keypoint,
+                task_ind=task_id,
                 keypoints_detector=keypoints_detector,
                 hand_detector=hand_detector,
                 gesture_recognizer=gesture_recognizer,
