@@ -1,6 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.connection import Connection
 from fastapi import WebSocket, WebSocketDisconnect
+from pydantic import Json
+
 from src.shared import shared_values
 from src.schemas import DetectionTaskResponse, DetectionTaskRequest
 import asyncio
@@ -26,12 +28,11 @@ async def handle_users_frames(websocket: WebSocket, img_converter_conn: Connecti
                     await loop.run_in_executor(
                         executor, worker["connection"].send, (data.task, img)
                     )
-                    results: DetectionTaskResponse = await loop.run_in_executor(
+                    results: Json = await loop.run_in_executor(
                         executor, worker["connection"].recv
                     )
 
-                print(results)
-                await websocket.send_json(results.model_dump_json())
+                await websocket.send_json(results)
                 # await websocket.send_json(results.model_dump_json())
             except WebSocketDisconnect:
                 await loop.run_in_executor(executor, img_converter_conn.close)
