@@ -30,6 +30,7 @@ async def handle_users_frames(websocket: WebSocket, img_converter_conn: Connecti
                         executor, worker["connection"].recv
                     )
 
+                print(results)
                 await websocket.send_json(results.model_dump_json())
                 # await websocket.send_json(results.model_dump_json())
             except WebSocketDisconnect:
