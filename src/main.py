@@ -11,7 +11,6 @@ import torch
 from src.utils import img_converter, detection_worker
 from src.service import handle_users_frames
 from src.shared import shared_values
-from src.schemas import Worker
 import logging
 
 
