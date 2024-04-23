@@ -8,7 +8,7 @@ class DetectionTaskError(BaseModel):
 
 class DetectionTaskRequest(BaseModel):
     task: int
-    base64_img: Base64Str
+    base64_img: str
 
 
 class DetectionTaskResponse(BaseModel):
