@@ -1,7 +1,7 @@
 class AttributingPoint:
     def __init__(self, point: tuple[int, int]) -> None:
         x, y = point
-        self._bbox = (x - 30, y - 30), (x + 30, y + 30)
+        self._bbox = (x - 20, y - 20), (x + 20, y + 20)
 
     def check_intersection(self, x: int, y: int) -> bool:
         min_x, min_y = self._bbox[0]
