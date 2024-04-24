@@ -1,11 +1,7 @@
-import cv2
-from numpy import ndarray
-
-
 class AttributingPoint:
     def __init__(self, point: tuple[int, int]) -> None:
         x, y = point
-        self._bbox = (x - 10, y - 10), (x + 10, y + 10)
+        self._bbox = (x - 30, y - 30), (x + 30, y + 30)
 
     def check_intersection(self, x: int, y: int) -> bool:
         min_x, min_y = self._bbox[0]

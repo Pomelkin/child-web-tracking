@@ -6,7 +6,7 @@ const input = document.getElementById('input');
 const num = document.getElementById('number');
 const info = document.getElementById('info');
 // const ws = new WebSocket('ws://ontollm.semograph.com:28080/ws');
-const ws = new WebSocket('ws://5.35.10.222:8000/ws');
+const ws = new WebSocket('ws://localhost:8000/ws');
 
 videoCanvas.width = 640;
 videoCanvas.height = 480;

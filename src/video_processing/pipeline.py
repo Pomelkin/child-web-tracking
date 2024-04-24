@@ -6,7 +6,7 @@ from src.video_processing import Hand, AttributingPoint
 from src.schemas import DetectionTaskResponse, DetectionTaskError
 
 
-def detect_action(
+def touch_processor(
     frame: np.ndarray,
     task_ind: int,
     keypoints_detector: PoseEstimator,
@@ -17,6 +17,12 @@ def detect_action(
     # constants
     error_count_prompts = ["too little", "too much"]
     tasks = [[0], [3, 4], [1, 2]]
+
+    # validation
+    if task_ind < 1 or task_ind > 3:
+        return DetectionTaskResponse(
+            success=False, error=DetectionTaskError(error=True, message="wrong task")
+        )
 
     # relate keypoint to task
     keypoints_indexes = tasks[task_ind - 1]

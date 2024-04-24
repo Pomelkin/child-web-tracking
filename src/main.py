@@ -1,17 +1,16 @@
-from contextlib import asynccontextmanager
+import asyncio
+import multiprocessing as mp
 from asyncio import Lock, Semaphore
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import asynccontextmanager
+
+import torch
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-import numpy as np
-import asyncio
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
-import torch
-from src.utils import img_converter
+
 from src.service import user_frames_handler, detection_worker
 from src.shared import shared_values
-import logging
 
 
 @asynccontextmanager
@@ -34,15 +33,19 @@ async def lifespan(app: FastAPI):
         loop = asyncio.get_running_loop()
         parent_detection_worker_conn, child_detection_worker_conn = mp.Pipe()
 
-        worker = loop.run_in_executor(
+        worker_task = loop.run_in_executor(
             executor, detection_worker, child_detection_worker_conn
         )
-        shared_values["detection_worker"] = {"connection": parent_detection_worker_conn}
+
+        shared_values["detection_worker"] = {
+            "worker_task": worker_task,
+            "connection": parent_detection_worker_conn,
+        }
         yield
 
         worker = shared_values["detection_worker"]
         worker_conn = worker["connection"]
-        worker_conn.send("stop")
+        worker_conn.close()
     # Clean up the ML models and release the resources
     shared_values.clear()
 
@@ -68,15 +71,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close()
 
     async with semaphore:
-        executor: ProcessPoolExecutor = shared_values["process_executor"]
-        parent_img_converter_conn, child_img_converter_conn = mp.Pipe(duplex=True)
-
-        loop = asyncio.get_running_loop()
-        loop.run_in_executor(executor, img_converter, child_img_converter_conn)
-
-        await user_frames_handler(websocket, parent_img_converter_conn)
-        parent_img_converter_conn.close()
-        child_img_converter_conn.close()
+        await user_frames_handler(websocket)
 
 
 @app.get("/")
