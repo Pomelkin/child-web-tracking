@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Base64Str
+from pydantic import BaseModel
 
 
 class DetectionTaskError(BaseModel):
@@ -12,5 +12,6 @@ class DetectionTaskRequest(BaseModel):
 
 
 class DetectionTaskResponse(BaseModel):
+    non_processed: bool = False
     success: bool
     error: DetectionTaskError

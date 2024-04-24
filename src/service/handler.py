@@ -3,7 +3,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import Json
 from src.utils import img_converter
 from src.shared import shared_values
-from src.schemas import DetectionTaskRequest
+from src.schemas import DetectionTaskRequest, DetectionTaskResponse, DetectionTaskError
 from multiprocessing.connection import Connection
 import asyncio
 
